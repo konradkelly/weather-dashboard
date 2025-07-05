@@ -35,6 +35,56 @@ function formatWeatherData(data) {
     };
 }
 
+function formatSimpleForecastData(data) {
+        const forecasts = [];
+        const dailyData = {};
+        
+        //Group forecasts by date
+        data.list.forEach(item => {
+            const date = new Date(item.dt * 1000).toDateString();
+            if (!dailyData[date]) {
+                dailyData[date] = [];
+            }
+            dailyData[date].push(item);
+        });
+
+        Object.keys(dailyData).forEach(date => {
+            const dayForecasts = dailyData[date];
+
+            const temps = dayForecasts.map(f => f.main.temp);
+            const minTemp = Math.round(Math.min(...temps));
+            const maxTemp = Math.round(Math.max(...temps));
+
+            //Get the most common weather condition for the day
+            const weatherCounts = {};
+            dayForecasts.forEach(f => {
+                const weather = f.weather[0].main;
+                weatherCounts[weather] = (weatherCounts[weather] || 0) + 1;
+            });
+
+            const mostCommonWeather = Object.keys(weatherCounts).reduce((a, b) =>
+                weatherCounts[a] > weatherCounts[b] ? a : b
+            );
+
+            const representativeEntry = dayForecasts.find(f =>
+                f.weather[0].main === mostCommonWeather
+            ) || dayForecasts[0];
+
+            forecasts.push({
+                date: date,
+                minTemp: minTemp,
+                maxTemp: maxTemp,
+                icon: representativeEntry.weather[0].icon
+            });
+        });
+        
+        return {
+            city: data.city.name,
+            country: data.city.country,
+            forecasts: forecasts.slice(0, 5)
+        };
+    }
+
 //NEW: Current weather route by coordinates (for geolocation)
 app.get('/api/weather/coordinates', async (req, res) => {
     try {
@@ -75,6 +125,32 @@ app.get('/api/weather/coordinates', async (req, res) => {
     }
 });
 
+// 5-day forecast route by city name
+app.get('/api/forecast/:city', async (req, res) => {
+    try {
+        const { city } = req.params;
+        const API_KEY = process.env.OPENWEATHER_API_KEY;
+
+        const forecastResponse = await axios.get(
+            `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${API_KEY}&units=metric`
+        );
+
+        const forecastData = formatSimpleForecastData(forecastResponse.data);
+        res.json(forecastData);
+
+    } catch (error) {
+        console.error('Error fetching forecast data:', error);
+
+        if (error.response && error.response.status === 404) {
+            res.status(404).json({ error: 'City not found' });
+        } else if (error.response && error.response.status === 401) {
+            res.status(401).json({ error: 'Invalid API key' });
+        } else {
+            res.status(500).json({ error: 'Failed to fetch forecast data' });
+        }
+    }
+});
+
 //Current weather route by city name
 app.get('/api/weather/:city', async (req, res) => {
     try {
@@ -98,6 +174,7 @@ app.get('/api/weather/:city', async (req, res) => {
         }
     }
 });
+
 
 //Start server on PORT=3000
 app.listen(PORT, () => {

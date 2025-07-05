@@ -1,5 +1,6 @@
 let currentTempCelsius = null;
 let isFahrenheit = false;
+let currentForecastData = null; // Store forecast data for unit conversion
 
 function celsiusToFahrenheit(celsius) {
     return (celsius * 9/5) + 32;
@@ -57,6 +58,9 @@ function switchToUnit(unit) {
         temperature.innerHTML = `${tempF}°F`;
         isFahrenheit = true;
     }
+
+    // Update forecast display when unit changes
+    updateForecastDisplay();
 }
 
 // Your original helper function to update toggle button states
@@ -70,7 +74,7 @@ function updateToggleButtons() {
         return;
     }
     
-    toggleContainer.style.display = 'inline-flex';
+    toggleContainer.style.display = 'flex';
     
     if (isFahrenheit) {
         celsiusBtn.classList.remove('active');
@@ -82,6 +86,103 @@ function updateToggleButtons() {
         celsiusBtn.classList.add('active');
         fahrenheitBtn.classList.remove('active');
         fahrenheitBtn.classList.add('inactive');
+    }
+}
+
+// FIXED: Function to display forecast data - now works with your HTML structure
+function displayForecast(forecastData) {
+    const forecastContainer = document.getElementById('forecastContainer');
+    const forecastGrid = document.getElementById('forecastGrid');
+    
+    if (!forecastContainer || !forecastGrid) {
+        console.warn('Forecast container or grid not found in HTML');
+        return;
+    }
+
+    if (!forecastData || !forecastData.forecasts) {
+        forecastContainer.style.display = 'none';
+        return;
+    }
+
+    // Store forecast data for unit conversion
+    currentForecastData = forecastData;
+
+    // Show the forecast container
+    forecastContainer.style.display = 'block';
+
+    let forecastHTML = '';
+    
+    forecastData.forecasts.forEach((forecast, index) => {
+        const date = new Date(forecast.date);
+        const dayName = index === 0 ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'short' });
+        
+        // Convert temperatures based on current unit preference
+        let minTemp, maxTemp;
+        if (isFahrenheit) {
+            minTemp = Math.round(celsiusToFahrenheit(forecast.minTemp));
+            maxTemp = Math.round(celsiusToFahrenheit(forecast.maxTemp));
+        } else {
+            minTemp = Math.round(forecast.minTemp);
+            maxTemp = Math.round(forecast.maxTemp);
+        }
+        
+        const tempUnit = isFahrenheit ? '°F' : '°C';
+        
+        forecastHTML += `
+            <div class="forecast-day">
+                <div class="forecast-date">${dayName}</div>
+                <div class="forecast-icon">
+                    <img src="https://openweathermap.org/img/wn/${forecast.icon}@2x.png" alt="Weather" />
+                </div>
+                <div class="forecast-temps">
+                    <span class="temp-high">${maxTemp}${tempUnit}</span>
+                    <span class="temp-low">${minTemp}${tempUnit}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    // Insert into the forecast grid, not the container
+    forecastGrid.innerHTML = forecastHTML;
+}
+
+// NEW: Function to update forecast display when units change
+function updateForecastDisplay() {
+    if (currentForecastData) {
+        displayForecast(currentForecastData);
+    }
+}
+
+// FIXED: Function to fetch and display forecast - now calls the forecast after weather data loads
+async function getForecast(cityName = null, lat = null, lon = null) {
+    try {
+        let url;
+        if (cityName) {
+            url = `/api/forecast/${encodeURIComponent(cityName)}`;
+        } else if (lat && lon) {
+            url = `/api/forecast/coordinates?lat=${lat}&lon=${lon}`;
+        } else {
+            return;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (response.ok) {
+            displayForecast(data);
+        } else {
+            console.error('Forecast error:', data.error);
+            const forecastContainer = document.getElementById('forecastContainer');
+            if (forecastContainer) {
+                forecastContainer.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching forecast:', error);
+        const forecastContainer = document.getElementById('forecastContainer');
+        if (forecastContainer) {
+            forecastContainer.style.display = 'none';
+        }
     }
 }
 
@@ -104,6 +205,12 @@ async function getWeatherByLocation() {
     humidity.innerHTML = '--';
     windSpeed.innerHTML = '--';
     toggleContainer.style.display = 'none';
+
+    // Hide forecast while loading
+    const forecastContainer = document.getElementById('forecastContainer');
+    if (forecastContainer) {
+        forecastContainer.style.display = 'none';
+    }
 
     try {
         const position = await getCurrentLocation();
@@ -131,12 +238,15 @@ async function getWeatherByLocation() {
             location.innerHTML = `${data.city}`;
             description.innerHTML = `${data.description}`;
 
-            // Fixed typo: precipitation instead of precipiation
             precipitation.innerHTML = `${data.precipitation || 0}mm`;
             humidity.innerHTML = `${data.humidity || 0}%`;
             windSpeed.innerHTML = `${data.windSpeed || 0}km/h`;
 
             updateToggleButtons();
+
+            // FIXED: Now fetch forecast after weather data loads
+            await getForecast(null, lat, lon);
+
         } else {
             weatherIcon.innerHTML = '';
             temperature.innerHTML = `Error: ${data.error}`;
@@ -147,6 +257,11 @@ async function getWeatherByLocation() {
             windSpeed.innerHTML = '--';
             toggleContainer.style.display = 'none';
             currentTempCelsius = null;
+            
+            // Hide forecast on error
+            if (forecastContainer) {
+                forecastContainer.style.display = 'none';
+            }
         }
 
     } catch (error) {
@@ -163,10 +278,15 @@ async function getWeatherByLocation() {
         windSpeed.innerHTML = '--';
         toggleContainer.style.display = 'none';
         currentTempCelsius = null;
+        
+        // Hide forecast on error
+        if (forecastContainer) {
+            forecastContainer.style.display = 'none';
+        }
     }
 }
 
-// Your original main function (renamed to match your code)
+// FIXED: Your original main function - now fetches forecast after weather data loads
 async function getTemperature() {
     const cityInput = document.getElementById('cityInput').value;
     const temperature = document.getElementById('temperature');
@@ -188,12 +308,27 @@ async function getTemperature() {
         windSpeed.innerHTML = '--';
         toggleContainer.style.display = 'none';
         currentTempCelsius = null;
+        
+        // Hide forecast when no input
+        const forecastContainer = document.getElementById('forecastContainer');
+        if (forecastContainer) {
+            forecastContainer.style.display = 'none';
+        }
         return;
     }
 
     const city = cityInput.toLowerCase().split(' ').map(word =>
         word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+
+    // Show loading state
+    temperature.innerHTML = 'Loading...';
+    
+    // Hide forecast while loading
+    const forecastContainer = document.getElementById('forecastContainer');
+    if (forecastContainer) {
+        forecastContainer.style.display = 'none';
+    }
 
     try {
         const url = `/api/weather/${encodeURIComponent(city)}`;
@@ -224,6 +359,9 @@ async function getTemperature() {
             // Update toggle button states
             updateToggleButtons();
             
+            // FIXED: Now fetch forecast after weather data loads
+            await getForecast(city);
+            
         } else {
             weatherIcon.innerHTML = '';
             temperature.innerHTML = `Error: ${data.error}`;
@@ -234,6 +372,11 @@ async function getTemperature() {
             windSpeed.innerHTML = '--';
             toggleContainer.style.display = 'none';
             currentTempCelsius = null;
+            
+            // Hide forecast on error
+            if (forecastContainer) {
+                forecastContainer.style.display = 'none';
+            }
         }
 
     } catch (error) {
@@ -246,6 +389,11 @@ async function getTemperature() {
         windSpeed.innerHTML = '--';
         toggleContainer.style.display = 'none';
         currentTempCelsius = null;
+        
+        // Hide forecast on error
+        if (forecastContainer) {
+            forecastContainer.style.display = 'none';
+        }
     }
 }
 
