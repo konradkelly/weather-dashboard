@@ -125,6 +125,46 @@ app.get('/api/weather/coordinates', async (req, res) => {
     }
 });
 
+// 5-day forecast route by coordinates (for geolocation)
+app.get('/api/forecast/coordinates', async (req, res) => {
+    try {
+        const { lat, lon } = req.query;
+        const API_KEY = process.env.OPENWEATHER_API_KEY;
+
+        // Validate coordinates
+        if (!lat || !lon) {
+            return res.status(400).json({ error: 'Latitude and longitude are required' });
+        }
+
+        if (isNaN(lat) || isNaN(lon)) {
+            return res.status(400).json({ error: 'Invalid coordinates provided' });
+        }
+
+        // Check coordinate ranges
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            return res.status(400).json({ error: 'Coordinates out of valid range' });
+        }
+
+        const forecastResponse = await axios.get(
+            `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`
+        );
+
+        const forecastData = formatSimpleForecastData(forecastResponse.data);
+        res.json(forecastData);
+
+    } catch (error) {
+        console.error('Error fetching forecast data by coordinates:', error);
+
+        if (error.response && error.response.status === 404) {
+            res.status(404).json({ error: 'Location not found' });
+        } else if (error.response && error.response.status === 401) {
+            res.status(401).json({ error: 'Invalid API key' });
+        } else {
+            res.status(500).json({ error: 'Failed to fetch forecast data' });
+        }
+    }
+});
+
 // 5-day forecast route by city name
 app.get('/api/forecast/:city', async (req, res) => {
     try {
