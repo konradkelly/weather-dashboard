@@ -238,6 +238,8 @@ async function getWeatherByLocation() {
             location.innerHTML = `${data.city}`;
             description.innerHTML = `${data.description}`;
 
+            updateRecentSearches(data.city);
+
             precipitation.innerHTML = `${data.precipitation || 0}mm`;
             humidity.innerHTML = `${data.humidity || 0}%`;
             windSpeed.innerHTML = `${data.windSpeed || 0}km/h`;
@@ -350,6 +352,9 @@ async function getTemperature() {
 
             location.innerHTML = `${data.city}`;
             description.innerHTML = `${data.description}`;
+
+            updateRecentSearches(data.city);
+
             
             // Update weather details
             precipitation.innerHTML = `${data.precipitation || 0}mm`;
@@ -410,3 +415,23 @@ window.addEventListener('load', function() {
     // Still focus on input for user convenience
     document.getElementById('cityInput').focus();
 });
+
+function updateRecentSearches(city, country = '') {
+  fetch('/api/recentSearches', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city, country })
+  })
+  .then(response => {
+    if (!response.ok) {
+      console.error('Failed to update recent searches');
+    }
+  })
+  .catch(err => {
+    console.error('Error updating recent searches:', err);
+  });
+}
+
+
+
+

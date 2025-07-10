@@ -1,6 +1,9 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const dbPath = path.join(__dirname, 'weather.db');
 require('dotenv').config();
 
 const app = express();
@@ -9,6 +12,34 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
+
+// Initialize SQLite database
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Error opening database:', err.message);
+  } else {
+    console.log('Connected to SQLite database');
+    initializeDatabase(); // <--- call it here
+  }
+});
+
+function initializeDatabase() {
+    db.run(`CREATE TABLE IF NOT EXISTS recent_searches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    city TEXT NOT NULL,
+    country TEXT NOT NULL,
+    searched_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+}
+
+// Add this after your database connection
+db.serialize(() => {
+    initializeDatabase();
+    // Wait a moment for the database to be ready, then show recent searches
+    setTimeout(() => {
+        showRecentSearches();
+    }, 1000);
+});
 
 //Test API route
 app.get('/', (req, res) => {
@@ -191,7 +222,7 @@ app.get('/api/forecast/:city', async (req, res) => {
     }
 });
 
-//Current weather route by city name
+// Current weather route by city name
 app.get('/api/weather/:city', async (req, res) => {
     try {
         const { city } = req.params;
@@ -202,6 +233,12 @@ app.get('/api/weather/:city', async (req, res) => {
         );
 
         const weatherData = formatWeatherData(weatherResponse.data);
+
+        // ✅ Log to database
+        if (weatherData.city && weatherData.country) {
+            updateRecentSearches(weatherData.city, weatherData.country);
+        }
+
         res.json(weatherData);
 
     } catch (error) {
@@ -215,6 +252,94 @@ app.get('/api/weather/:city', async (req, res) => {
     }
 });
 
+
+app.post('/api/recentSearches', (req, res) => {
+  const { city, country } = req.body;
+
+  if (!city || !country) {
+    return res.status(400).json({ error: 'City and country are required' });
+  }
+
+  const timestamp = new Date().toISOString();
+  const sql = `INSERT INTO recent_searches (city, country, searched_at) VALUES (?, ?, ?)`;
+
+  db.run(sql, [city, country, timestamp], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: 'Failed to save recent search' });
+    }
+    res.json({ message: 'Search saved', id: this.lastID });
+  });
+});
+
+app.get('/api/recentSearches', (req, res) => {
+  const sql = `SELECT city, country, searched_at FROM recent_searches ORDER BY searched_at DESC LIMIT 10`;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: 'Failed to fetch recent searches' });
+    }
+    res.json(rows);
+  });
+});
+
+function updateRecentSearches(city, country) {
+    db.run(
+        'INSERT INTO recent_searches (city, country) VALUES (?, ?)',
+        [city, country],
+        (err) => {
+            if (err) {
+                console.error('Error inserting recent search:', err);
+            } else {
+                console.log(`Inserted recent search: ${city}, ${country}`);
+            }
+        }
+    );
+}
+
+function showRecentSearches() {
+    try {
+        // Query to get the 25 most recent searches
+        const query = `
+            SELECT city, country, searched_at 
+            FROM recent_searches 
+            ORDER BY searched_at DESC 
+            LIMIT 50
+        `;
+        
+        db.all(query, [], (err, searches) => {
+            if (err) {
+                console.error('Error fetching recent searches:', err);
+                return;
+            }
+            
+            console.log('\n=== RECENT SEARCHES (Last 25) ===');
+            console.log('Total records found:', searches.length);
+            console.log('=====================================');
+            
+            if (searches.length === 0) {
+                console.log('No recent searches found in database.');
+                return;
+            }
+            
+            // Display each search with formatted output
+            searches.forEach((search, index) => {
+                const timestamp = new Date(search.searched_at).toLocaleString();
+                const location = search.country ? `${search.city}, ${search.country}` : search.city;
+                
+                console.log(`${index + 1}. ${location}`);
+                console.log(`   Time: ${timestamp}`);
+                console.log('   ---');
+            });
+            
+            console.log('=====================================\n');
+        });
+        
+    } catch (error) {
+        console.error('Error fetching recent searches:', error);
+    }
+}
 
 //Start server on PORT=3000
 app.listen(PORT, () => {
