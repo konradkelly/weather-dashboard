@@ -31,6 +31,7 @@
             width: 100%;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3);
+            position: relative;
         }
 
         .title {
@@ -82,6 +83,49 @@
         .search-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(116, 185, 255, 0.6);
+        }
+
+        .hamburger-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .hamburger-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .hamburger-btn:active {
+            transform: scale(0.95);
+        }
+
+        .hamburger-line {
+            width: 20px;
+            height: 2px;
+            background: #2d3436;
+            border-radius: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger-btn:hover .hamburger-line {
+            background: #74b9ff;
         }
 
         .weather-card {
@@ -312,6 +356,12 @@
 </head>
 <body>
     <div class="container">
+        <button class="hamburger-btn" onclick="showMyLocations()">
+            <div class="hamburger-line"></div>
+            <div class="hamburger-line"></div>
+            <div class="hamburger-line"></div>
+        </button>
+        
         <h1 class="title">🌤️ Weather App</h1>
         
         <div class="search-container">
