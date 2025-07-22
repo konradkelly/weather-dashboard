@@ -432,7 +432,13 @@ async function getWeatherByCoordinates(lat, lon) {
 
             precipitation.innerHTML = `${data.precipitation || 0}mm`;
             humidity.innerHTML = `${data.humidity || 0}%`;
-            windSpeed.innerHTML = `${data.windSpeed || 0}km/h`;
+            let windValue = data.windSpeed || 0;
+            let windUnit = 'km/h';
+            if (isFahrenheit) {
+                windValue = Math.round((windValue / 1.609) * 10) / 10; // convert to mph, 1 decimal
+                windUnit = 'mph';
+            }
+            windSpeed.innerHTML = `${windValue}${windUnit}`;
 
             updateToggleButtons();
 
@@ -503,6 +509,23 @@ function switchToUnit(unit) {
 
     // Update forecast display when unit changes
     updateForecastDisplay();
+
+    // Update wind speed value and unit
+    const windSpeed = document.getElementById('windSpeed');
+    if (windSpeed && windSpeed.innerHTML && windSpeed.innerHTML !== '--') {
+        let value = parseFloat(windSpeed.innerHTML.replace(/[^\d.]/g, ''));
+        let windValue, windUnit;
+        if (unit === 'fahrenheit') {
+            // Convert km/h to mph
+            windValue = Math.round((value / 1.609) * 10) / 10;
+            windUnit = 'mph';
+        } else {
+            // Convert mph to km/h
+            windValue = Math.round((value * 1.609) * 10) / 10;
+            windUnit = 'km/h';
+        }
+        windSpeed.innerHTML = `${windValue} ${windUnit}`;
+    }
 }
 
 // Your original helper function to update toggle button states
@@ -684,7 +707,13 @@ async function getWeatherByLocation() {
 
             precipitation.innerHTML = `${data.precipitation || 0}mm`;
             humidity.innerHTML = `${data.humidity || 0}%`;
-            windSpeed.innerHTML = `${data.windSpeed || 0}km/h`;
+            let windValue = data.windSpeed || 0;
+            let windUnit = 'km/h';
+            if (isFahrenheit) {
+                windValue = Math.round((windValue / 1.609) * 10) / 10; // convert to mph, 1 decimal
+                windUnit = 'mph';
+            }
+            windSpeed.innerHTML = `${windValue} ${windUnit}`;
 
             updateToggleButtons();
 
@@ -801,7 +830,13 @@ async function getWeatherData() {
             // Update weather details
             precipitation.innerHTML = `${data.precipitation || 0}mm`;
             humidity.innerHTML = `${data.humidity || 0}%`;
-            windSpeed.innerHTML = `${data.windSpeed || 0}km/h`;
+            let windValue = data.windSpeed || 0;
+            let windUnit = 'km/h';
+            if (isFahrenheit) {
+                windValue = Math.round((windValue / 1.609) * 10) / 10; // convert to mph, 1 decimal
+                windUnit = 'mph';
+            }
+            windSpeed.innerHTML = `${windValue} ${windUnit}`;
             
             // Update toggle button states
             updateToggleButtons();
